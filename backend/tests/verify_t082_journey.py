@@ -11,12 +11,13 @@ Demonstrates the full live call workflow against the running FastAPI backend:
 8. Verify immutable visit history, unchanged earlier records, verbatim prospect wording, and call listing.
 """
 
+import os
 import json
 import sys
 import urllib.request
 import urllib.error
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else os.getenv("API_URL", "http://127.0.0.1:8000")).rstrip("/")
 
 def make_request(method: str, path: str, data: dict = None):
     url = f"{BASE_URL}{path}"
