@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from uuid import UUID
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
 class CallOutcome(str, Enum):
     AGREED_TO_RECEIVE_REPORT = "agreed_to_receive_report"
@@ -38,8 +39,8 @@ class CallCloseRequest(BaseModel):
 class CallStageResultResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
-    call_id: str
+    id: UUID
+    call_id: UUID
     stage_number: int
     visit_number: int
     selected_result: str
@@ -47,10 +48,14 @@ class CallStageResultResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_serializer("id", "call_id")
+    def serialize_uuid(self, v: UUID) -> str:
+        return str(v)
+
 class CallResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: UUID
     prospect_name: Optional[str] = None
     company_name: Optional[str] = None
     prospect_role: Optional[str] = None
@@ -65,6 +70,10 @@ class CallResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     stage_results: Optional[List[CallStageResultResponse]] = None
+
+    @field_serializer("id")
+    def serialize_uuid(self, v: UUID) -> str:
+        return str(v)
 
 class CallListResponse(BaseModel):
     items: List[CallResponse]
