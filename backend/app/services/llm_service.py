@@ -7,11 +7,18 @@ from app.models.entities import Call, CallStageResult
 logger = logging.getLogger(__name__)
 
 class LLMService:
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or settings.GEMINI_API_KEY
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+        self.api_key = api_key if api_key is not None else settings.GEMINI_API_KEY
+        self.model = model if model is not None else settings.GEMINI_MODEL
 
     def is_available(self) -> bool:
         return bool(self.api_key and self.api_key.strip() and self.api_key != "your_gemini_api_key_here")
+
+    def _sanitize(self, text: str) -> str:
+        """Removes API key from log messages or error text to prevent credential leakage."""
+        if self.api_key and self.api_key in text:
+            return text.replace(self.api_key, "[REDACTED]")
+        return text
 
     def generate_summary(
         self,
@@ -61,7 +68,14 @@ class LLMService:
 
         try:
             # We call Gemini REST API via httpx with strict 5-second timeout
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+            headers = {
+                "x-goog-api-key": self.api_key,
+                "Content-Type": "application/json"
+            }
+            params = {
+                "key": self.api_key
+            }
             payload = {
                 "contents": [
                     {
@@ -75,7 +89,7 @@ class LLMService:
             }
 
             with httpx.Client(timeout=5.0) as client:
-                response = client.post(url, json=payload)
+                response = client.post(url, headers=headers, params=params, json=payload)
                 if response.status_code == 200:
                     data = response.json()
                     candidates = data.get("candidates", [])
@@ -87,14 +101,16 @@ class LLMService:
                                 return summary_text
                     return "Summary unavailable (empty response from AI provider)"
                 else:
-                    logger.warning(f"Gemini API returned status {response.status_code}: {response.text}")
+                    logger.warning(
+                        f"Gemini API returned status {response.status_code} for model {self.model}: {self._sanitize(response.text)}"
+                    )
                     return f"Summary unavailable (provider error {response.status_code})"
 
         except httpx.TimeoutException:
-            logger.warning("Gemini API call timed out after 5 seconds.")
+            logger.warning(f"Gemini API call for model {self.model} timed out after 5 seconds.")
             return "Summary unavailable (AI request timed out)"
         except Exception as e:
-            logger.error(f"Unexpected error calling Gemini API: {str(e)}")
+            logger.error(f"Unexpected error calling Gemini API: {self._sanitize(str(e))}")
             return "Summary unavailable (AI service error)"
 
 llm_service = LLMService()

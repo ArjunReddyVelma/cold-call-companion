@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str = "*"
     DATABASE_URL: str = "sqlite:///./coldcall.db"
     GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-3.8-flash"
 
 settings = Settings()
 
