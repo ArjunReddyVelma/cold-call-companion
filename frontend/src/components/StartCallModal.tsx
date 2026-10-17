@@ -124,7 +124,7 @@ export const StartCallModal: React.FC<StartCallModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickDemo("Modern Lighting Founder", "Modern Lighting Solutions", "Managing Director (T082)")}
+                onClick={() => handleQuickDemo("Anand Verma", "Modern Lighting Solutions", "Founder / Managing Director")}
                 className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded transition-colors"
               >
                 T082 · Modern Lighting
