@@ -58,3 +58,5 @@ lerna-debug.log*
 .vscode/
 *.swp
 *.swo
+*.db
+*.sqlite3
