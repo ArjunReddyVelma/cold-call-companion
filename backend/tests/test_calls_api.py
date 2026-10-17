@@ -298,3 +298,87 @@ def test_pagination_and_ordering(client):
     p1_ids = {x["id"] for x in p1["items"]}
     p2_ids = {x["id"] for x in p2["items"]}
     assert p1_ids.isdisjoint(p2_ids)
+
+def test_create_call_returns_string_id_and_validates(client):
+    """
+    Regression test: ensures POST /v1/calls returns HTTP 201, a valid string id,
+    and adheres to the frontend contract.
+    """
+    import uuid
+    res = client.post("/v1/calls", json={"prospect_name": "Test Prospect", "company_name": "Test Co"})
+    assert res.status_code == 201
+    data = res.json()
+    assert "id" in data
+    assert isinstance(data["id"], str)
+    # Verify standard 36-char hyphenated UUID string
+    parsed_uuid = uuid.UUID(data["id"])
+    assert str(parsed_uuid) == data["id"]
+    assert data["is_closed"] is False
+
+def test_uuid_object_response_validation_regression():
+    """
+    Regression test for the Render PostgreSQL bug:
+    Verifies that CallResponse and CallStageResultResponse validate when the underlying
+    database driver (such as psycopg2 on PostgreSQL) supplies actual Python uuid.UUID objects,
+    and confirms they serialize cleanly to JSON strings at the response boundary.
+    """
+    import uuid
+    from datetime import datetime
+    from app.models.schemas import CallResponse, CallStageResultResponse, CallListResponse
+
+    call_uuid = uuid.uuid4()
+    stage_uuid = uuid.uuid4()
+
+    class MockPgStageResult:
+        id = stage_uuid  # Python UUID object
+        call_id = call_uuid  # Python UUID object
+        stage_number = 1
+        visit_number = 1
+        selected_result = "Reached intended person"
+        prospect_words = "Speaking"
+        created_at = datetime.utcnow()
+        updated_at = datetime.utcnow()
+
+    class MockPgCall:
+        id = call_uuid  # Python UUID object
+        prospect_name = "Anand Verma"
+        company_name = "Modern Lighting Solutions"
+        prospect_role = "Founder"
+        started_at = datetime.utcnow()
+        ended_at = None
+        last_stage_reached = 1
+        final_outcome = None
+        next_step = None
+        next_step_at = None
+        summary = None
+        is_closed = False
+        created_at = datetime.utcnow()
+        updated_at = datetime.utcnow()
+        stage_results = [MockPgStageResult()]
+
+    # 1. Validate CallStageResultResponse from Python UUID attributes
+    stage_resp = CallStageResultResponse.model_validate(MockPgStageResult())
+    assert isinstance(stage_resp.id, uuid.UUID)
+    assert isinstance(stage_resp.call_id, uuid.UUID)
+    # Check serialization mode='json'
+    stage_json = stage_resp.model_dump(mode="json")
+    assert isinstance(stage_json["id"], str)
+    assert stage_json["id"] == str(stage_uuid)
+    assert isinstance(stage_json["call_id"], str)
+    assert stage_json["call_id"] == str(call_uuid)
+
+    # 2. Validate CallResponse from Python UUID attributes
+    call_resp = CallResponse.model_validate(MockPgCall())
+    assert isinstance(call_resp.id, uuid.UUID)
+    call_json = call_resp.model_dump(mode="json")
+    assert isinstance(call_json["id"], str)
+    assert call_json["id"] == str(call_uuid)
+    assert isinstance(call_json["stage_results"][0]["id"], str)
+    assert isinstance(call_json["stage_results"][0]["call_id"], str)
+
+    # 3. Validate CallListResponse
+    list_resp = CallListResponse(items=[call_resp], total=1)
+    list_json = list_resp.model_dump(mode="json")
+    assert isinstance(list_json["items"][0]["id"], str)
+    assert list_json["items"][0]["id"] == str(call_uuid)
+
