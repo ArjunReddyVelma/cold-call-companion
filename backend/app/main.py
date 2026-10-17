@@ -31,11 +31,18 @@ app = FastAPI(
 )
 
 # CORS configuration
-origins = ["*"] if settings.FRONTEND_ORIGIN == "*" else [settings.FRONTEND_ORIGIN, "http://localhost:5173", "http://localhost:3000"]
+if settings.FRONTEND_ORIGIN == "*":
+    origins = ["*"]
+else:
+    origins = [orig.strip() for orig in settings.FRONTEND_ORIGIN.split(",") if orig.strip()]
+    for local_origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
+        if local_origin not in origins:
+            origins.append(local_origin)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$" if settings.FRONTEND_ORIGIN != "*" else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

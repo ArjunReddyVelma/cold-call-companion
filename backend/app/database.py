@@ -7,13 +7,18 @@ logger = logging.getLogger(__name__)
 
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
-connect_args = {"check_same_thread": False} if is_sqlite else {}
+engine_kwargs = {
+    "connect_args": {"check_same_thread": False} if is_sqlite else {},
+    "pool_pre_ping": True,
+}
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True
-)
+if not is_sqlite:
+    # Supabase / PostgreSQL connection pooler optimizations
+    engine_kwargs["pool_recycle"] = 300
+    engine_kwargs["pool_size"] = 5
+    engine_kwargs["max_overflow"] = 10
+
+engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
 
 # Enable foreign keys in SQLite
 if is_sqlite:
