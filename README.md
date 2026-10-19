@@ -29,11 +29,11 @@ Developed for the **DeepThought Forward Deployed Engineer (FDE) Assignment**.
                                       |  SQLAlchemy 2.0 ORM + Pydantic v2  |
                                       +--------+------------------+--------+
                                                |                  |
-                       Strict 5s REST Timeout  |                  | Connection Pooler
+                       Configurable 30s Timeout|                  | Connection Pooler
                                                v                  v
                         +----------------------+---+   +----------+-------------+
                         |  Google Gemini API       |   | Supabase PostgreSQL    |
-                        |  gemini-1.5-flash        |   | (schema.sql + triggers)|
+                        |  gemini-3.8-flash        |   | (schema.sql + triggers)|
                         |  Backend-only (summaries)|   | SQLite for local dev   |
                         +--------------------------+   +------------------------+
 ```
@@ -42,7 +42,7 @@ Developed for the **DeepThought Forward Deployed Engineer (FDE) Assignment**.
 1. **Frontend:** React 18, TypeScript 5, Vite 5, Tailwind CSS. Sub-second build (`1.01s`), strict type checking (`0 errors`), and full unit/component test coverage (18 Vitest tests).
 2. **Backend:** Python 3.9, FastAPI, SQLAlchemy 2.0. Clean tiered architecture (`app/routes`, `app/services`, `app/models`). 17 automated tests (100% pass rate).
 3. **Database:** Supabase-hosted PostgreSQL with complete reproducible schema ([`supabase/schema.sql`](supabase/schema.sql)). Includes compound unique constraints (`uq_call_stage_visit`), CHECK constraints for stages (1–8) and 10 call outcomes, and automated timestamp triggers. Dual-mode support enables seamless local development via SQLite.
-4. **LLM Integration:** Google Gemini API (`gemini-1.5-flash`), called exclusively from the backend with strict 5-second timeouts and graceful fallback if unconfigured or unreachable. Prospect notes are treated as untrusted user data with prompt-injection defenses.
+4. **LLM Integration:** Google Gemini API (`gemini-3.8-flash`), called exclusively from the backend with configurable 30-second timeout (`GEMINI_TIMEOUT_SECONDS`) and graceful fallback if unconfigured or unreachable. Prospect notes are treated as untrusted user data with prompt-injection defenses.
 5. **Data Integrity:**
    - **10 Distinct Outcomes:** `agreed_to_receive_report`, `next_step_agreed`, `interested`, `follow_up`, `call_again`, `not_interested`, `do_not_call`, `wrong_person`, `moved_company`, and `not_logged` are strictly preserved without collapsing.
    - **Append-Only Stage Visits:** Revisiting a stage assigns `visit_number = (max_visit or 0) + 1` without overwriting earlier notes.

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./coldcall.db"
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_TIMEOUT_SECONDS: float = 30.0
 
 settings = Settings()
 
