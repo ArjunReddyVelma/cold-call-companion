@@ -106,7 +106,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ call, onClose 
                 AI-Generated Post-Call Summary
               </h4>
             </div>
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
               {call.summary || 'Summary unavailable or call not closed yet.'}
             </p>
             <p className="text-[10px] text-slate-400 font-mono mt-2">

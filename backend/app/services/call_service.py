@@ -98,12 +98,19 @@ class CallService:
             call.last_stage_reached = req.last_stage_reached
 
         # Fetch all stage results to feed the LLM summarizer
-        stage_results = (
-            db.query(CallStageResult)
-            .filter(CallStageResult.call_id == call_id)
-            .order_by(CallStageResult.created_at.asc())
-            .all()
-        )
+        # Check relationship first, fallback to explicit query matching both string and UUID representations
+        stage_results = list(call.stage_results) if call.stage_results else []
+        if not stage_results:
+            stage_results = (
+                db.query(CallStageResult)
+                .filter(
+                    (CallStageResult.call_id == str(call.id)) |
+                    (CallStageResult.call_id == call_id) |
+                    (CallStageResult.call_id == call.id)
+                )
+                .order_by(CallStageResult.created_at.asc(), CallStageResult.visit_number.asc())
+                .all()
+            )
 
         # Generate factual AI summary (graceful fallback if LLM offline)
         try:
