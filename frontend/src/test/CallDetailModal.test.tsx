@@ -112,9 +112,52 @@ describe('CallDetailModal Component', () => {
     expect(screen.getByText(/founder,/)).toBeInTheDocument();
 
     // Summary section renders full conversation insights rather than only prospect metadata
-    expect(screen.getByText(/Conversation Recap: Contacted prospect\./)).toBeInTheDocument();
-    expect(screen.getByText(/Prospect Needs & Interests: Aluminum fixture fabrication\./)).toBeInTheDocument();
-    expect(screen.getByText(/Recorded Next Steps: Send report on WhatsApp\./)).toBeInTheDocument();
+    expect(screen.getByText('Conversation Recap:')).toBeInTheDocument();
+    expect(screen.getByText('Contacted prospect.')).toBeInTheDocument();
+    expect(screen.getByText('Prospect Needs & Interests:')).toBeInTheDocument();
+    expect(screen.getByText('Aluminum fixture fabrication.')).toBeInTheDocument();
+    expect(screen.getByText('Recorded Next Steps:')).toBeInTheDocument();
+    expect(screen.getByText('Send report on WhatsApp.')).toBeInTheDocument();
+  });
+
+  it('renders markdown formatted summary without literal asterisk markers', () => {
+    const handleClose = vi.fn();
+    const markdownSummary =
+      "**Conversation Recap:** Reached **prospect** directly.\n" +
+      "**Prospect Needs & Interests:** Needs **fast** delivery.\n" +
+      "**Objections or Concerns:** None recorded.\n" +
+      "**Agreed Outcome:** Agreed to call back.\n" +
+      "**Recorded Next Steps:** Follow up on Monday.";
+
+    const callWithMarkdown: Call = {
+      ...mockCallWithRevisit,
+      summary: markdownSummary
+    };
+
+    render(<CallDetailModal call={callWithMarkdown} onClose={handleClose} />);
+
+    // Headings parsed cleanly without **
+    expect(screen.getByText('Conversation Recap:')).toBeInTheDocument();
+    expect(screen.getByText('Prospect Needs & Interests:')).toBeInTheDocument();
+
+    // Bold inline text rendered as strong elements without **
+    expect(screen.getByText('prospect')).toBeInTheDocument();
+    expect(screen.getByText('fast')).toBeInTheDocument();
+
+    // No raw ** rendered in DOM
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
+  it('renders truncated fallback notice gracefully in warning box', () => {
+    const handleClose = vi.fn();
+    const callWithTruncated: Call = {
+      ...mockCallWithRevisit,
+      summary: 'Summary unavailable (AI response truncated)'
+    };
+
+    render(<CallDetailModal call={callWithTruncated} onClose={handleClose} />);
+
+    expect(screen.getByText('Summary unavailable (AI response truncated)')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', () => {
