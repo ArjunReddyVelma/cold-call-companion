@@ -434,6 +434,105 @@ def test_llm_service_timeout_configuration():
     service_int = LLMService(timeout_seconds=15)
     assert service_int.timeout_seconds == 15.0
 
+def test_llm_service_truncated_max_tokens_fallback(monkeypatch, caplog):
+    """
+    Verifies that when Gemini returns finishReason='MAX_TOKENS' and retry also truncates,
+    a sanitized warning is logged and the safe fallback 'Summary unavailable (AI response truncated)' is returned.
+    """
+    service = LLMService(api_key="mock-api-key-12345", model="gemini-3.8-flash")
+    call, stage_results = create_sample_call_and_stage()
+
+    def mock_truncated_post(self, url, headers=None, params=None, json=None, timeout=None, **kwargs):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {
+                    "finishReason": "MAX_TOKENS",
+                    "content": {
+                        "parts": [
+                            {"text": "- Conversation Recap: Contacted Anand Verma and started discuss"}
+                        ]
+                    }
+                }
+            ],
+            "usageMetadata": {
+                "promptTokenCount": 200,
+                "candidatesTokenCount": 800,
+                "totalTokenCount": 1000
+            }
+        }
+        return mock_resp
+
+    monkeypatch.setattr(httpx.Client, "post", mock_truncated_post)
+
+    with caplog.at_level("WARNING"):
+        summary = service.generate_summary(call, stage_results)
+
+    assert summary == "Summary unavailable (AI response truncated)"
+    assert "finishReason=MAX_TOKENS" in caplog.text
+
+def test_llm_service_mid_sentence_truncation_retry_succeeds(monkeypatch):
+    """
+    Verifies that when initial attempt is cut off mid-sentence,
+    the service automatically triggers a concise retry that succeeds.
+    """
+    service = LLMService(api_key="mock-api-key-12345", model="gemini-3.8-flash")
+    call, stage_results = create_sample_call_and_stage()
+
+    call_count = 0
+
+    def mock_retry_post(self, url, headers=None, params=None, json=None, timeout=None, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+
+        if call_count == 1:
+            # First attempt cut off mid-sentence
+            mock_resp.json.return_value = {
+                "candidates": [
+                    {
+                        "finishReason": "MAX_TOKENS",
+                        "content": {
+                            "parts": [
+                                {"text": "- Conversation Recap: Reached prospect and began discu"}
+                            ]
+                        }
+                    }
+                ]
+            }
+        else:
+            # Second attempt (concise retry) succeeds with finishReason=STOP and complete text
+            mock_resp.json.return_value = {
+                "candidates": [
+                    {
+                        "finishReason": "STOP",
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        "- Conversation Recap: Contacted Rajesh Sharma.\n"
+                                        "- Prospect Needs & Interests: Engineering plant diagnostics.\n"
+                                        "- Objections or Concerns: None recorded.\n"
+                                        "- Agreed Outcome: Agreed to receive report.\n"
+                                        "- Recorded Next Steps: Send report on WhatsApp."
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        return mock_resp
+
+    monkeypatch.setattr(httpx.Client, "post", mock_retry_post)
+    summary = service.generate_summary(call, stage_results)
+
+    assert call_count == 2
+    assert "- Conversation Recap: Contacted Rajesh Sharma." in summary
+    assert "- Recorded Next Steps: Send report on WhatsApp." in summary
+
 def test_close_call_succeeds_when_gemini_times_out(client, monkeypatch):
     """
     Verifies that an AI timeout never prevents a call from closing or its outcome from being saved.

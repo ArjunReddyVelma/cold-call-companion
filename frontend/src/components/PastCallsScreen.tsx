@@ -218,7 +218,7 @@ export const PastCallsScreen: React.FC<PastCallsScreenProps> = ({
                   <strong className="text-slate-800 font-mono text-[11px] uppercase mr-1">
                     AI Summary:
                   </strong>
-                  {call.summary}
+                  {call.summary.replace(/\*\*/g, '')}
                 </div>
               )}
             </div>
