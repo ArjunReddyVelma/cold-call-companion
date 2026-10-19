@@ -35,7 +35,7 @@ flowchart LR
   - RESTful API endpoints for calls and stage visits.
   - Safe backend auto-incrementation of stage `visit_number` to guarantee immutable history.
   - Strict validation of stage numbers (1–8), call lifecycle states, and 10 outcome tags.
-  - Asynchronous LLM summary generation with 5-second timeout and graceful fallback.
+  - Asynchronous LLM summary generation with configurable timeout (default 30s) and graceful fallback.
   - Database access layer connecting to Supabase PostgreSQL with connection pooling.
 
 ### Database (Supabase PostgreSQL)

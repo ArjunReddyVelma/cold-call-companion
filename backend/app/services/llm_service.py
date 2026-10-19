@@ -7,9 +7,19 @@ from app.models.entities import Call, CallStageResult
 logger = logging.getLogger(__name__)
 
 class LLMService:
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout_seconds: Optional[float] = None
+    ):
         self.api_key = api_key if api_key is not None else settings.GEMINI_API_KEY
         self.model = model if model is not None else settings.GEMINI_MODEL
+        self.timeout_seconds = (
+            float(timeout_seconds)
+            if timeout_seconds is not None
+            else float(getattr(settings, "GEMINI_TIMEOUT_SECONDS", 30.0))
+        )
 
     def is_available(self) -> bool:
         return bool(self.api_key and self.api_key.strip() and self.api_key != "your_gemini_api_key_here")
@@ -67,7 +77,7 @@ class LLMService:
         prompt = f"{system_instruction}\n\nCall Details:\n{context_text}\n\nSummary:"
 
         try:
-            # We call Gemini REST API via httpx with strict 5-second timeout
+            # We call Gemini REST API via httpx with configured timeout
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
             headers = {
                 "x-goog-api-key": self.api_key,
@@ -88,8 +98,8 @@ class LLMService:
                 }
             }
 
-            with httpx.Client(timeout=5.0) as client:
-                response = client.post(url, headers=headers, params=params, json=payload)
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.post(url, headers=headers, params=params, json=payload, timeout=self.timeout_seconds)
                 if response.status_code == 200:
                     data = response.json()
                     candidates = data.get("candidates", [])
@@ -107,7 +117,10 @@ class LLMService:
                     return f"Summary unavailable (provider error {response.status_code})"
 
         except httpx.TimeoutException:
-            logger.warning(f"Gemini API call for model {self.model} timed out after 5 seconds.")
+            formatted_timeout = int(self.timeout_seconds) if self.timeout_seconds.is_integer() else self.timeout_seconds
+            logger.warning(
+                f"Gemini API call for model {self.model} timed out after {formatted_timeout} seconds."
+            )
             return "Summary unavailable (AI request timed out)"
         except Exception as e:
             logger.error(f"Unexpected error calling Gemini API: {self._sanitize(str(e))}")
