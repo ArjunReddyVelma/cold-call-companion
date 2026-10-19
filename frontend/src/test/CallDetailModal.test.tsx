@@ -89,6 +89,34 @@ describe('CallDetailModal Component', () => {
     expect(screen.getByText(/Clarified fixture batch size of 2000 units\/mo\./)).toBeInTheDocument();
   });
 
+  it('renders structured multi-section AI summary text without replacing it with prospect metadata', () => {
+    const handleClose = vi.fn();
+    const structuredSummary =
+      "- Conversation Recap: Contacted prospect.\n" +
+      "- Prospect Needs & Interests: Aluminum fixture fabrication.\n" +
+      "- Objections or Concerns: None recorded.\n" +
+      "- Agreed Outcome: Agreed to receive report.\n" +
+      "- Recorded Next Steps: Send report on WhatsApp.";
+
+    const callWithStructuredSummary: Call = {
+      ...mockCallWithRevisit,
+      prospect_name: 'Arjun Reddy',
+      prospect_role: 'founder',
+      summary: structuredSummary
+    };
+
+    render(<CallDetailModal call={callWithStructuredSummary} onClose={handleClose} />);
+
+    // Header displays prospect name and role
+    expect(screen.getByText('Arjun Reddy')).toBeInTheDocument();
+    expect(screen.getByText(/founder,/)).toBeInTheDocument();
+
+    // Summary section renders full conversation insights rather than only prospect metadata
+    expect(screen.getByText(/Conversation Recap: Contacted prospect\./)).toBeInTheDocument();
+    expect(screen.getByText(/Prospect Needs & Interests: Aluminum fixture fabrication\./)).toBeInTheDocument();
+    expect(screen.getByText(/Recorded Next Steps: Send report on WhatsApp\./)).toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', () => {
     const handleClose = vi.fn();
     render(<CallDetailModal call={mockCallWithRevisit} onClose={handleClose} />);
